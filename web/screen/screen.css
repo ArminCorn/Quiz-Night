@@ -409,38 +409,109 @@ body.hide-cursor * {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 28px;
+  gap: 64px;
+  padding-top: 24px;
 }
-.summary-kicker {
-  font-size: 24px;
-  color: var(--paper-dim);
-}
-.summary-title {
-  margin: 0;
-  font-size: 120px;
-  text-transform: uppercase;
-}
-.summary-teams {
-  width: 1400px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 80px;
-}
-.summary-team {
+.summary-head {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 24px;
 }
-.summary-name {
-  font-size: 50px;
+.summary-kicker {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  color: var(--paper-dim);
+}
+.summary-swatch {
+  width: 18px;
+  height: 18px;
+  background: var(--fc);
+}
+.summary-title {
+  margin: 0;
+  font-size: 128px;
   text-transform: uppercase;
 }
+.summary-bars {
+  width: 640px;
+  height: 12px;
+}
+.summary-teams {
+  width: 1500px;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 40px;
+}
+.summary-team {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+.summary-name {
+  max-width: 100%;
+  font-size: 52px;
+  text-transform: uppercase;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
 .summary-total {
-  font-size: 200px;
+  font-size: 230px;
   font-stretch: 100%;
   font-variation-settings: 'wdth' 100;
+  line-height: 0.95;
 }
 .summary-add {
+  padding: 10px 20px 9px;
+  background: var(--fc);
+  color: var(--night);
   font-size: 24px;
+  letter-spacing: 0.16em;
+}
+.summary-sep {
+  font-size: 140px;
+  color: var(--red);
+}
+.summary-leader {
+  min-height: 1.2em;
+  font-size: 26px;
+  letter-spacing: 0.26em;
+  visibility: hidden;
+}
+
+.scene-summary.is-applied .summary-add {
+  visibility: hidden;
+}
+.scene-summary.is-applied .summary-leader {
+  visibility: visible;
+}
+.summary-add.is-flying {
+  animation: summary-fly 0.7s var(--ease-in-out) forwards;
+}
+.summary-total.is-landed {
+  animation: summary-land 0.6s var(--ease-out);
+}
+.summary-leader.is-appearing {
+  animation: rise 0.6s var(--ease-out) both;
+}
+@keyframes summary-fly {
+  to {
+    opacity: 0;
+    transform: translateY(-120px);
+  }
+}
+@keyframes summary-land {
+  0% {
+    transform: scale(1.1);
+    color: var(--fc);
+  }
+  100% {
+    transform: none;
+  }
 }

@@ -66,7 +66,7 @@ export function countUp(el, from, to, duration = 1400) {
     function tick(now) {
       if (el._countToken !== token) return resolve(false);
       const p = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - p, 3);
+      const eased = 1 - Math.pow(1 - p, 2);
       el.textContent = formatNumber(Math.round(from + (to - from) * eased));
       if (p < 1) requestAnimationFrame(tick);
       else resolve(true);

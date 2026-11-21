@@ -87,7 +87,8 @@ function createLobbyScene(ctx) {
         nextSwatch.style.background = view.next.color;
         next.hidden = false;
       } else {
-        next.hidden = !played;
+        // Nur zeigen, wenn wirklich jedes Format der Kapitelleiste gespielt ist
+        next.hidden = !view.chapters.every((c) => c.done);
         setText(nextName, 'Alle Formate gespielt');
         nextSwatch.style.background = 'var(--red)';
       }
