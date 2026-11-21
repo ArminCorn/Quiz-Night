@@ -1,0 +1,442 @@
+/* Gamemaster-Ansicht – funktional, gut lesbar, gleiche Farbwelt wie der Beamer */
+
+body.host {
+  font-size: 15px;
+  line-height: 1.45;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 1.9em;
+  padding: 2px 7px;
+  border: 1px solid var(--paper-faint);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  font: 700 12px/1.4 var(--font-mono);
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--paper);
+  background: rgba(244, 241, 234, 0.04);
+}
+
+/* ------------------------------------------------ Kopfzeile */
+
+.host-header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 12px 24px;
+  background: var(--night);
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+.brand-title {
+  font-size: 22px;
+  text-transform: uppercase;
+}
+.brand-sub {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.phase-badge {
+  padding: 4px 10px;
+  border: 1px solid var(--c);
+  color: var(--paper);
+  font-size: 11px;
+}
+.header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+  font-size: 13px;
+  color: var(--paper-dim);
+}
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--red);
+}
+.status-dot.is-online {
+  background: var(--tb-green);
+}
+body.is-offline .host-main {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* ------------------------------------------------ Layout */
+
+.host-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+  gap: 20px;
+  padding: 20px 24px 40px;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  min-width: 0;
+}
+@media (max-width: 1100px) {
+  .host-main {
+    grid-template-columns: 1fr;
+  }
+}
+
+.panel {
+  padding: 18px 20px 20px;
+  background: var(--night-2);
+  border: 1px solid var(--line);
+}
+.panel-title {
+  margin: 0 0 14px;
+  font-size: 12px;
+  color: var(--paper-dim);
+}
+.hint {
+  margin: 12px 0 0;
+  color: var(--paper-dim);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------ Knöpfe */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 9px 16px;
+  border: 1px solid var(--paper-faint);
+  border-radius: 4px;
+  background: var(--night-3);
+  color: var(--paper);
+  font: 700 14px/1.2 var(--font-mono);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, transform 0.06s;
+}
+.btn:hover:not(:disabled) {
+  border-color: var(--paper-dim);
+  background: #283759;
+}
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+.btn:focus-visible {
+  outline: 2px solid var(--tb-yellow);
+  outline-offset: 2px;
+}
+.btn kbd {
+  font-size: 11px;
+}
+.btn-primary {
+  background: var(--red);
+  border-color: var(--red);
+}
+.btn-primary:hover:not(:disabled) {
+  background: #d9443b;
+  border-color: #d9443b;
+}
+.btn-big {
+  padding: 14px 22px;
+  font-size: 16px;
+}
+.btn-small {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.btn-ghost {
+  background: transparent;
+}
+.btn-danger-ghost {
+  background: transparent;
+  border-color: rgba(201, 54, 46, 0.7);
+  color: #f0a29c;
+}
+.btn-danger-ghost:hover:not(:disabled) {
+  background: rgba(201, 54, 46, 0.18);
+  border-color: var(--red);
+}
+.btn-square {
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  font-size: 20px;
+}
+
+/* ------------------------------------------------ Nächster Schritt */
+
+.panel-next {
+  border-color: rgba(244, 241, 234, 0.28);
+}
+.next-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.next-text {
+  flex: 1;
+  min-width: 0;
+}
+.next-label {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 110%;
+  font-size: 24px;
+  line-height: 1.2;
+}
+.next-detail {
+  margin-top: 4px;
+  color: var(--paper-dim);
+  font-size: 14px;
+}
+
+/* ------------------------------------------------ Phasen */
+
+.team-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+}
+@media (max-width: 700px) {
+  .team-form {
+    grid-template-columns: 1fr;
+  }
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.field .label {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.field input {
+  padding: 9px 12px;
+  border: 1px solid var(--paper-faint);
+  border-radius: 4px;
+  background: var(--night);
+  font-size: 16px;
+}
+.field input:focus {
+  outline: 2px solid var(--tb-yellow);
+  outline-offset: 1px;
+}
+.phase-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 16px;
+}
+.summary-table th {
+  padding: 6px 10px;
+  text-align: left;
+  font: 700 11px/1.2 var(--font-mono);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--paper-dim);
+  border-bottom: 1px solid var(--line);
+}
+.summary-table td {
+  padding: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.summary-table .num {
+  font-variant-numeric: tabular-nums;
+}
+.summary-table .strong {
+  font-weight: 700;
+  font-size: 20px;
+}
+
+/* ------------------------------------------------ Punkte */
+
+.pt-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+@media (max-width: 700px) {
+  .pt-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.pt-block.is-disabled .pt-name {
+  opacity: 0.5;
+}
+.pt-title {
+  margin: 0 0 10px;
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.pt-row {
+  display: grid;
+  grid-template-columns: 1fr auto 56px auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+.pt-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pt-value {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 26px;
+  text-align: center;
+}
+
+/* ------------------------------------------------ Rechte Spalte */
+
+.preview-box {
+  aspect-ratio: 16 / 9;
+  background: #000;
+  border: 1px solid var(--line);
+}
+.preview-frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  pointer-events: none;
+}
+
+.undo-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.undo-label {
+  color: var(--paper-dim);
+  font-size: 14px;
+}
+
+.legend {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 14px;
+  margin: 0;
+  align-items: center;
+}
+.legend dt {
+  margin: 0;
+}
+.legend dd {
+  margin: 0;
+}
+
+.chapter-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.chapter-item {
+  display: grid;
+  grid-template-columns: 26px 14px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--line);
+}
+.chapter-item:last-child {
+  border-bottom: 0;
+}
+.ch-num {
+  color: var(--paper-faint);
+  font-size: 13px;
+}
+.ch-swatch {
+  width: 14px;
+  height: 14px;
+}
+.ch-status {
+  font-size: 12px;
+  color: var(--paper-dim);
+}
+.chapter-item.is-active .ch-name {
+  font-weight: 700;
+}
+.chapter-item.is-active .ch-status {
+  color: var(--paper);
+}
+.chapter-item.is-done .ch-name {
+  color: var(--paper-dim);
+}
+.chapter-item.is-soon {
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------ Hinweise */
+
+.toasts {
+  position: fixed;
+  z-index: 20;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  padding: 10px 18px;
+  background: var(--paper);
+  color: var(--night);
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 4px;
+  animation: toast-in 0.2s var(--ease-out) both;
+  transition: opacity 0.3s;
+}
+.toast.is-leaving {
+  opacity: 0;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

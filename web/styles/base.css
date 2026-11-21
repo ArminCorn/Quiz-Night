@@ -1,0 +1,92 @@
+/* Schriften – lokal aus node_modules, werden beim Build mitgepackt (offline-fähig) */
+@import '@fontsource-variable/archivo/wdth.css';
+@import '@fontsource-variable/archivo/wdth-italic.css';
+@import '@fontsource/space-mono/400.css';
+@import '@fontsource/space-mono/700.css';
+
+:root {
+  /* Grundfarben (Flyer) */
+  --night: #0e1626;
+  --night-2: #16213a;
+  --night-3: #1f2c49;
+  --paper: #f4f1ea;
+  --paper-dim: rgba(244, 241, 234, 0.62);
+  --paper-faint: rgba(244, 241, 234, 0.32);
+  --line: rgba(244, 241, 234, 0.14);
+  --red: #c9362e;
+
+  /* Testbild-Palette */
+  --tb-grey: #c9c6bd;
+  --tb-yellow: #d8c12f;
+  --tb-cyan: #3db2be;
+  --tb-green: #44a35a;
+  --tb-magenta: #b0479b;
+  --tb-red: #c9362e;
+  --tb-blue: #2c4ba8;
+
+  --font-display: 'Archivo Variable', 'Archivo', 'Arial Black', system-ui, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, 'Courier New', monospace;
+
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: var(--night);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Titel: kursiv, sehr fett, breit */
+.display {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: 125%;
+  font-variation-settings: 'wdth' 125;
+  letter-spacing: -0.01em;
+  line-height: 0.95;
+}
+
+/* Labels und Zahlen */
+.mono {
+  font-family: var(--font-mono);
+}
+
+.label {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Testbild-Streifen (flache Farbblöcke) */
+.testbars {
+  display: flex;
+  gap: 0;
+}
+.testbars > span {
+  flex: 1;
+}
+.testbars > span:nth-child(1) { background: var(--tb-grey); }
+.testbars > span:nth-child(2) { background: var(--tb-yellow); }
+.testbars > span:nth-child(3) { background: var(--tb-cyan); }
+.testbars > span:nth-child(4) { background: var(--tb-green); }
+.testbars > span:nth-child(5) { background: var(--tb-magenta); }
+.testbars > span:nth-child(6) { background: var(--tb-red); }
+.testbars > span:nth-child(7) { background: var(--tb-blue); }

@@ -1,0 +1,17 @@
+{
+  "title": "Quiz Night",
+  "subtitle": "18.12.2026",
+  "teams": {
+    "A": "Team A",
+    "B": "Team B"
+  },
+  "formatOrder": [
+    "kategorien",
+    "quiz",
+    "laender",
+    "wavelength",
+    "bluff",
+    "familyfeud"
+  ],
+  "port": 3000
+}
