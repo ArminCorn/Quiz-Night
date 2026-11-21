@@ -65,10 +65,10 @@ if (DEV) {
     server: { middlewareMode: true, hmr: { server } },
     appType: 'mpa',
   });
-  // /screen → /screen/ (Vite erwartet den Schrägstrich für Unterseiten)
+  // /screen → /screen/ (relative Pfade der Unterseiten brauchen den Schrägstrich)
   app.use((req, res, next) => {
     const [path, query] = req.url.split('?');
-    if (PAGES[path] && path !== '/') req.url = `${path}/${query ? `?${query}` : ''}`;
+    if (PAGES[path] && path !== '/') return res.redirect(`${path}/${query ? `?${query}` : ''}`);
     next();
   });
   app.use(vite.middlewares);
