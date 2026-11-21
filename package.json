@@ -1,0 +1,24 @@
+{
+  "name": "quiz-night",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Lokale Gameshow-Website für den Quiz-Abend: Beamer-Ansicht, Gamemaster-Steuerung, Formate als Module.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "start": "vite build --logLevel warn && node server/index.js",
+    "serve": "node server/index.js",
+    "build": "vite build",
+    "dev": "node server/index.js --dev",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "@fontsource-variable/archivo": "^5.2.8",
+    "@fontsource/space-mono": "^5.2.9",
+    "express": "^4.21.2",
+    "vite": "^6.4.1",
+    "ws": "^8.18.3"
+  }
+}

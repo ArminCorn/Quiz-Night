@@ -1,0 +1,244 @@
+/* Kategorien – alle Klassen mit Präfix kat- */
+
+/* ------------------------------------------------ Beamer */
+
+.kat-screen {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.kat-waiting {
+  font-size: 28px;
+  letter-spacing: 0.3em;
+  color: var(--paper-faint);
+}
+.kat-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 40px;
+  text-align: center;
+}
+.kat-kicker {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-size: 24px;
+  letter-spacing: 0.32em;
+  color: var(--fc);
+}
+.kat-kicker-bar {
+  width: 56px;
+  height: 10px;
+  background: var(--fc);
+}
+.kat-title {
+  width: 100%;
+  padding: 0.06em 0;
+  font-size: 168px;
+  line-height: 1;
+  text-align: center;
+  transition: opacity 0.6s ease;
+}
+.kat-card.is-decided .kat-title {
+  opacity: 0.42;
+}
+.kat-result {
+  padding: 12px 24px 11px;
+  background: var(--red);
+  color: var(--paper);
+  font-size: 28px;
+  letter-spacing: 0.2em;
+}
+
+.kat-result.is-placeholder {
+  visibility: hidden;
+}
+
+.kat-kicker.is-revealing {
+  animation: kat-rise 0.5s var(--ease-out) both;
+}
+.kat-title.is-revealing {
+  animation: kat-wipe 0.8s 0.1s var(--ease-out) both;
+}
+.kat-result.is-appearing {
+  animation: kat-rise 0.5s var(--ease-out) both;
+}
+.kat-result.is-appearing.is-delayed {
+  animation-delay: 2.8s;
+}
+
+/* Einblendung „Team X holt den Punkt“ – über die volle Bildbreite */
+.kat-banner {
+  position: absolute;
+  z-index: 5;
+  left: -120px;
+  right: -120px;
+  top: 50%;
+  height: 210px;
+  margin-top: -105px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--red);
+  visibility: hidden;
+}
+.kat-banner-text {
+  display: block;
+  width: 1760px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: center;
+  text-transform: uppercase;
+  font-size: 96px;
+  color: var(--paper);
+}
+.kat-banner.is-playing {
+  visibility: visible;
+  animation: kat-banner 3.1s both;
+}
+.kat-banner.is-playing .kat-banner-text {
+  animation: kat-banner-text 3.1s both;
+}
+
+@keyframes kat-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+@keyframes kat-wipe {
+  from {
+    clip-path: inset(-20% 100% -20% -20%);
+    transform: translateX(-50px);
+  }
+  to {
+    clip-path: inset(-20% -20% -20% -20%);
+    transform: none;
+  }
+}
+@keyframes kat-banner {
+  0% {
+    clip-path: inset(0 100% 0 0);
+    animation-timing-function: var(--ease-out);
+  }
+  14% {
+    clip-path: inset(0 0 0 0);
+  }
+  84% {
+    clip-path: inset(0 0 0 0);
+    animation-timing-function: var(--ease-in-out);
+  }
+  100% {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+@keyframes kat-banner-text {
+  0% {
+    transform: translateX(-90px);
+    animation-timing-function: var(--ease-out);
+  }
+  24%,
+  100% {
+    transform: none;
+  }
+}
+
+/* ------------------------------------------------ Gamemaster */
+
+.kat-h-block {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.kat-h-block:last-child {
+  border-bottom: 0;
+}
+.kat-h-now {
+  padding-top: 0;
+}
+.kat-h-label {
+  margin-bottom: 6px;
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.kat-h-current {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: 112%;
+  font-size: 32px;
+  line-height: 1.15;
+}
+.kat-h-current.is-empty,
+.kat-h-next.is-empty {
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-weight: 400;
+  font-size: 15px;
+  color: var(--paper-dim);
+}
+.kat-h-note {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(216, 193, 47, 0.12);
+  color: var(--paper);
+  font-size: 14px;
+}
+.kat-h-status {
+  margin-top: 10px;
+  color: var(--paper-dim);
+  font-size: 14px;
+}
+.kat-h-status.is-running {
+  color: var(--tb-yellow);
+}
+.kat-h-buttons {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+@media (max-width: 700px) {
+  .kat-h-buttons {
+    grid-template-columns: 1fr;
+  }
+}
+.kat-h-team {
+  justify-content: space-between;
+  padding: 18px 20px;
+  font-size: 17px;
+}
+.kat-h-team:not(:disabled) {
+  border-color: var(--paper-dim);
+}
+.kat-h-next {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-stretch: 108%;
+  font-size: 20px;
+}
+.kat-h-results {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  max-height: 220px;
+  overflow: auto;
+}
+.kat-h-results li {
+  display: grid;
+  grid-template-columns: 28px 1fr auto;
+  gap: 10px;
+  padding: 5px 0;
+  font-size: 14px;
+}
+.kat-h-r-round {
+  color: var(--paper-faint);
+}
+.kat-h-r-winner {
+  color: var(--paper-dim);
+}

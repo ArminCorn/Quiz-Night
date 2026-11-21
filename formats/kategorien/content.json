@@ -1,0 +1,10 @@
+{
+  "_hinweis": "BEISPIEL-INHALTE: vor dem Abend durch echte Kategorien ersetzen. Die Reihenfolge hier ist die Spielreihenfolge. Jeder Eintrag ist entweder ein Text oder ein Objekt mit \"title\" und optional \"note\" (Notiz nur für den Gamemaster).",
+  "categories": [
+    "Beispiel: Tiere im Zoo",
+    "Beispiel: Obstsorten",
+    { "title": "Beispiel: Hauptstädte Europas", "note": "Notizen wie diese sieht nur der Gamemaster." },
+    "Beispiel: Dinge in der Küche",
+    "Beispiel: Sportarten mit Ball"
+  ]
+}
