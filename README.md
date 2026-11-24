@@ -1,6 +1,9 @@
 # Quiz Night
 
-Lokale Gameshow-Website für den Quiz-Abend am 18.12.2026. Ein Beamer zeigt die Show, der Gamemaster steuert sie vom Laptop aus. Alles läuft offline auf dem Laptop.
+> **Der Abend läuft komplett offline: WLAN darf aus sein, Internet wird nicht gebraucht.**
+> Alles läuft auf **einem** Laptop. Beamer-Fenster und Gamemaster-Fenster werden beide dort geöffnet. Kein anderes Gerät im Netzwerk, keine Handys. Der Server ist nur über `localhost` erreichbar. Internet braucht man einmalig für `git clone` und `npm install`.
+
+Lokale Gameshow-Website für den Quiz-Abend am 18.12.2026. Ein Beamer zeigt die Show, der Gamemaster steuert sie vom Laptop aus.
 
 ---
 
@@ -32,6 +35,7 @@ Lokale Gameshow-Website für den Quiz-Abend am 18.12.2026. Ein Beamer zeigt die 
    npm start
    ```
    Im Terminal erscheinen die Adressen. Das Terminal-Fenster **offen lassen**. Schließen = Server aus.
+   Der Server ist nur auf diesem Laptop erreichbar. Eine Firewall-Abfrage von Windows oder macOS erscheint deshalb normalerweise nicht. Falls doch: „Abbrechen“ ist richtig, es wird kein Netzwerkzugriff gebraucht.
 2. **Bildschirm erweitern** (nicht spiegeln):
    - Windows: `Windows-Taste + P` → „Erweitern“
    - Mac: Systemeinstellungen → Displays → Beamer als „Erweiterter Bildschirm“ (nicht „Synchronisieren“)
@@ -191,7 +195,7 @@ export default {
     meineAktion(state, payload, api) { … },
   },
 
-  // Optional: was welche Rolle sehen darf ('screen' | 'host' | 'play').
+  // Optional: was welche Rolle sehen darf ('screen' | 'host').
   // Standard: alle sehen den ganzen Zustand.
   view(state, role) { return { … }; },
 };
@@ -207,6 +211,51 @@ Das `api`-Objekt:
 | `api.endFormat()`         | Format beenden → Zwischenstand                                     |
 | `api.label(text)`         | Beschriftung für „Rückgängig: …“                                  |
 | `api.fail(message)`       | Aktion ablehnen. Der Text erscheint als Hinweis beim Gamemaster, der Zustand bleibt unverändert. |
+| `api.cleanText(wert, { max, label, allowEmpty })` | Text aus einer Eingabemaske prüfen: getrimmt, Leerraum vereinheitlicht, Länge begrenzt. Wirft bei Fehlern eine verständliche Meldung. |
+| `api.cleanInt(wert, { min, max, label })` | Ganze Zahl aus einer Eingabemaske prüfen (auch `"3"` als Text), mit Grenzen. |
+
+### Eingabemasken für Papierkarten-Inhalte
+
+Die Spieler benutzen keine Handys. Was sie auf Karten schreiben, tippt der Gamemaster ein. Ein Format darf dafür in `mountHost` beliebige Eingabefelder anbieten. Der Kern liefert dazu allgemeine Bausteine in `web/core/forms.js` (es gibt noch keine fertige Maske):
+
+```js
+import { textField, numberField, rowsEditor } from '@core/forms.js';
+
+mountHost(root, { send, toast, formatId }) {
+  const editor = rowsEditor({
+    draftKey: `${formatId}:antworten`,      // rettet den Entwurf bei Neuladen/Absturz
+    columns: [
+      { key: 'name', label: 'Name / Nr.', placeholder: 'z. B. 3' },
+      { key: 'text', label: 'Antwort', wide: true },
+    ],
+    minRows: 6,
+    submitLabel: 'Antworten übernehmen',
+    onSubmit: (rows) => send('saveAnswers', { rows }),   // [{ name, text }, …]
+  });
+  root.append(editor.el);
+  return { update(fv) { /* nur anzeigen, die Felder nicht neu bauen */ } };
+}
+```
+
+Und in `server.js` prüft die Aktion alles, bevor es im Zustand landet:
+
+```js
+saveAnswers(state, { rows }, api) {
+  if (!Array.isArray(rows) || rows.length > 30) api.fail('Zu viele Zeilen.');
+  state.answers = rows.map((r) => ({
+    name: api.cleanText(r.name, { max: 40, label: 'Name' }),
+    text: api.cleanText(r.text, { max: 200, label: 'Antwort' }),
+  }));
+  api.label('Antworten eingetragen');
+},
+```
+
+Die Bausteine halten diese Regeln ein, die auch für eigene Masken gelten:
+- **Maske einmal bauen, in `update()` nur nachführen.** `field.set(wert)` überschreibt nie ein Feld, in das gerade getippt wird. So kostet eine Änderung von außen (z. B. Punktekorrektur) keine Eingabe.
+- **Tasten stören nicht:** Solange ein Eingabefeld den Fokus hat, sind Leertaste, `1`, `2` und `Z` ausgeschaltet. `Strg + Z` macht im Feld das normale Rückgängig.
+- **Entwurf bleibt erhalten:** Abgetipptes steht im Browser (`localStorage`) und überlebt Neuladen. Er bleibt, bis das Format `editor.clear()` aufruft. Am besten erst, wenn der Zustand zeigt, dass der Server die Eingabe übernommen hat, denn `send()` meldet nur, dass abgeschickt wurde, nicht, dass der Server sie akzeptiert hat. Lehnt der Server ab (`api.fail`), erscheint die Meldung als Hinweis und der Entwurf bleibt. Mit `editor.setRows(…)` holt man gespeicherte Zeilen zum Korrigieren zurück in die Maske.
+- **Abgeschicktes ist normaler Zustand:** Es geht als Aktion an den Server, wird dort geprüft, gespeichert und ist rückgängig machbar wie alles andere.
+- **Abstimmen per Karten:** Das Ergebnis (z. B. Stimmen pro Antwort) tippt der Gamemaster mit `numberField` oder einer `rowsEditor`-Spalte `type: 'number'` ein.
 
 Der Kern kümmert sich um Rückgängig, Speichern, Synchronisieren, Formatpunkte, Zwischenstand und Gesamtpunkte. Ändert eine Aktion nichts, landet sie nicht im Rückgängig-Verlauf.
 
@@ -236,8 +285,10 @@ export default {
     };
   },
 
-  // Gamemaster: send(aktion, payload) schickt eine Aktion an server.js
-  mountHost(root, { send }) {
+  // Gamemaster: send(aktion, payload) schickt eine Aktion an server.js,
+  // toast(text) zeigt einen kurzen Hinweis, formatId ist die id des Formats.
+  // Hier dürfen auch Eingabemasken stehen (siehe „Eingabemasken“ unten).
+  mountHost(root, { send, toast, formatId }) {
     return { update(fv, view) { … }, destroy() { … } };
   },
 };
@@ -349,14 +400,28 @@ export default {
 - [ ] Ordner `formats/<id>/` mit `server.js` und `client.js` (Ordnername = id).
 - [ ] `init` liefert einen JSON-fähigen Zustand (keine Funktionen, keine `Date`-Objekte, keine Klassen).
 - [ ] Aktionen ändern nur `state` und benutzen `api` für Punkte, Sounds, Formatende.
-- [ ] Ungültige Aktionen mit `api.fail('…')` ablehnen.
+- [ ] Ungültige Aktionen mit `api.fail('…')` ablehnen, eingetippte Werte mit `api.cleanText` / `api.cleanInt` prüfen.
 - [ ] Geheimes (Antworten, nächste Inhalte) in `view(state, role)` nur an `'host'` geben.
 - [ ] `actions.next` definieren, wenn die Leertaste etwas tun soll, und `nextStep` passend beschriften.
 - [ ] Animationen nur bei `animate === true` abspielen.
+- [ ] Eingabemasken einmal bauen und in `update()` nur nachführen (Bausteine aus `@core/forms.js`).
 - [ ] Eigene CSS-Klassen mit Präfix (z. B. `quiz-…`), keine Farbverläufe, Glows oder Emoji.
 - [ ] Beispiel-Inhalte in `content.json` klar als „Beispiel“ kennzeichnen.
 - [ ] Optional: Tests in `test/` (siehe `test/kategorien.test.js`), dann `npm test`.
 - [ ] `npm start`, das Format im Gamemaster-Fenster durchspielen, Neuladen und Rückgängig prüfen.
+
+---
+
+## Papier-Workflow für spätere Formate
+
+Die Spieler benutzen keine Handys und kein Gerät im Netzwerk. Alles, was Spieler eingeben würden (z. B. beim Bluff-Format), läuft über Papier:
+
+1. **Spieler schreiben auf Karten.** Zum Beispiel eine erfundene Antwort plus Name oder Nummer des Teams.
+2. **Der Gamemaster sammelt die Karten ein** und tippt den Inhalt in der Gamemaster-Ansicht in eine Eingabemaske ein (Bausteine: „Eingabemasken für Papierkarten-Inhalte“ oben). Der Beamer zeigt die Antworten erst, wenn der Gamemaster sie freigibt.
+3. **Abgestimmt wird mit hochgehaltenen Karten.** Der Gamemaster zählt und tippt das Ergebnis pro Antwort ein.
+4. **Punkte** vergibt das Format danach über `api.addPoints` wie bei jedem anderen Format.
+
+Beim Bauen des Bluff-Formats greifen wir das wieder auf: Eingabemaske für die Antworten, Eingabemaske für die Stimmen, Antworten gemischt auf dem Beamer.
 
 ---
 
@@ -366,16 +431,15 @@ export default {
 
 ```
 server/
-  index.js       HTTP + WebSocket (/ws), Seiten /screen /host /play, lauscht auf 0.0.0.0
+  index.js       HTTP + WebSocket (/ws), Seiten /screen /host, lauscht nur auf 127.0.0.1
   engine.js      Kernaktionen und Phasen (Übersicht, Intro, Format, Zwischenstand), Ansichten je Rolle
   store.js       Zustand, Rückgängig-Verlauf, Speichern in data/state.json
   registry.js    liest formats/index.js, lädt server.js der Formate
 formats/         Formate (siehe oben)
 web/
-  core/          Verbindung, Sound-Modul, DOM-Helfer, Format-Lader, Bühnen-Skalierung
+  core/          Verbindung, Sound-Modul, DOM-Helfer, Eingabe-Bausteine (forms.js), Format-Lader, Bühnen-Skalierung
   screen/        Beamer-Ansicht (Kapitelleiste, Bauchbinde, Punkteanzeige, Szenen)
   host/          Gamemaster-Ansicht
-  play/          Platzhalter für Spieler-Handys („Kommt bald“)
   styles/        Farben, Schriften
 sounds/          Audiodateien (siehe sounds/README.md)
 data/            gespeicherter Spielstand (nicht im Repository)
@@ -384,7 +448,8 @@ test/            automatische Tests (npm test)
 ```
 
 - **Der Zustand liegt nur auf dem Server.** Die Fenster schicken Aktionen und bekommen nach jeder Änderung die passende Ansicht zurück. Der Beamer sieht keine Geheimnisse.
-- **Nur das Gamemaster-Fenster darf steuern.** Spätere Handy-Aktionen (Bluff) kommen als eigene Rolle `play` dazu.
+- **Nur das Gamemaster-Fenster darf steuern.** Eingaben der Spieler gibt es nicht: Sie schreiben auf Papierkarten, der Gamemaster tippt ein (siehe „Papier-Workflow“).
+- **Nur lokal:** Der Server lauscht auf `127.0.0.1` und lehnt Anfragen mit fremdem Host- oder Origin-Header ab. Andere Geräte und andere Webseiten im Browser können ihn nicht erreichen.
 - **Buzzer (später):** Die Gamepad-API im Gamemaster-Fenster löst dieselben Aktionen aus wie die Tasten.
 - **Frontend:** Vite mit Vanilla JS. Die drei Ansichten sind einfach, der Zustand liegt auf dem Server. Ein Framework brächte hier nur Ballast. Schriften (Archivo, Space Mono) kommen lokal aus `@fontsource`.
 
@@ -406,4 +471,4 @@ test/            automatische Tests (npm test)
 | Tasten reagieren nicht                    | Ins Gamemaster-Fenster klicken (die Tasten wirken nur dort, nicht in Eingabefeldern). |
 | Gamemaster zeigt „getrennt“               | Läuft das Terminal mit `npm start` noch? Neu starten, die Fenster verbinden sich selbst. |
 | Etwas falsch geklickt                     | `Z` (Rückgängig), beliebig oft.                                        |
-| Handys erreichen den Laptop nicht (später) | Gleiches WLAN? Die beim Start angezeigte `http://192.168.…`-Adresse verwenden. Ggf. Firewall-Abfrage beim ersten Start erlauben. |
+| `localhost` lädt nicht                    | Stattdessen <http://127.0.0.1:3000/host> und <http://127.0.0.1:3000/screen> öffnen. |

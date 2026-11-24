@@ -442,3 +442,64 @@ body.is-offline .host-main {
     transform: translateY(8px);
   }
 }
+
+/* ------------------------------------------------ Eingabemasken (web/core/forms.js) */
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-label {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.form-input {
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--paper-faint);
+  border-radius: 4px;
+  background: var(--night);
+  font-size: 16px;
+}
+.form-input:focus {
+  outline: 2px solid var(--tb-yellow);
+  outline-offset: 1px;
+}
+.rows-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rows-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.rows-row .form-input,
+.rows-head > .label {
+  flex: 1 1 0;
+}
+.rows-row .form-input.is-wide,
+.rows-head > .label.is-wide {
+  flex: 3 1 0;
+}
+.rows-head > .label {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.rows-head > span:last-child,
+.rows-row > .btn {
+  flex: 0 0 34px;
+}
+.rows-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rows-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}

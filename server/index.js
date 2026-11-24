@@ -1,6 +1,6 @@
 // Quiz Night – lokaler Server
 //
-// - liefert die Seiten aus (/screen, /host, /play)
+// - liefert die Seiten aus (/screen, /host) – nur auf diesem Laptop (127.0.0.1)
 // - hält den Spielzustand zentral und synchronisiert alle Fenster per WebSocket (/ws)
 // - speichert den Stand laufend in data/state.json
 //
@@ -9,7 +9,6 @@
 import express from 'express';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { networkInterfaces } from 'node:os';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
@@ -19,8 +18,8 @@ import { createStore } from './store.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DEV = process.argv.includes('--dev');
-const ROLES = ['screen', 'host', 'play'];
-const PAGES = { '/': 'index.html', '/screen': 'screen/index.html', '/host': 'host/index.html', '/play': 'play/index.html' };
+const ROLES = ['screen', 'host'];
+const PAGES = { '/': 'index.html', '/screen': 'screen/index.html', '/host': 'host/index.html' };
 const AUDIO_EXT = new Set(['.mp3', '.ogg', '.wav', '.m4a', '.aac', '.webm', '.flac']);
 
 const config = loadConfig();
@@ -34,9 +33,30 @@ const store = createStore({
 
 // ---------------------------------------------------------------- HTTP
 
+// Der Server ist nur über localhost erreichbar. Zusätzlich werden Anfragen mit
+// fremdem Host-/Origin-Header abgelehnt, damit keine andere Webseite im Browser
+// des Laptops den Spielstand steuern kann (Schutz vor DNS-Rebinding und
+// Cross-Site-WebSocket).
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+function hostnameOf(value) {
+  try {
+    return new URL(value.includes('://') ? value : `http://${value}`).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+function isLocalHost(value) {
+  const name = value ? hostnameOf(value) : null;
+  return name !== null && (LOCAL_HOSTS.has(name) || name.endsWith('.localhost'));
+}
+
 const app = express();
 const server = createServer(app);
 app.disable('x-powered-by');
+app.use((req, res, next) => {
+  if (isLocalHost(req.headers.host)) return next();
+  res.status(403).type('text').send('Quiz Night ist nur über localhost erreichbar.');
+});
 
 // Allgemeine Einstellungen für alle Ansichten (Titel usw.)
 app.get('/api/config', (req, res) => {
@@ -94,6 +114,11 @@ let seq = 0;
 
 server.on('upgrade', (req, socket, head) => {
   if (new URL(req.url, 'http://x').pathname !== '/ws') return; // z. B. Vite-HMR im Dev-Modus
+  const origin = req.headers.origin;
+  if (!isLocalHost(req.headers.host) || (origin && !isLocalHost(origin))) {
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    return socket.destroy();
+  }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
@@ -164,6 +189,7 @@ wss.on('close', () => clearInterval(heartbeat));
 // ---------------------------------------------------------------- Start
 
 const port = process.env.PORT != null ? Number(process.env.PORT) : config.port;
+const HOST = '127.0.0.1'; // bewusst nur lokal: kein WLAN, keine anderen Geräte
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`\nPort ${port} ist schon belegt. Läuft Quiz Night bereits in einem anderen Fenster?`);
@@ -173,16 +199,15 @@ server.on('error', (err) => {
   throw err;
 });
 
-server.listen(port, '0.0.0.0', () => {
+server.listen(port, HOST, () => {
   const actual = server.address().port;
-  const ips = localIps();
   const playable = registry.order.filter((f) => f.playable).map((f) => f.name);
   console.log('');
   console.log(`  QUIZ NIGHT läuft${DEV ? ' (Entwicklungsmodus)' : ''}`);
   console.log('');
   console.log(`  Gamemaster (Laptop):   http://localhost:${actual}/host`);
   console.log(`  Beamer (Vollbild):     http://localhost:${actual}/screen`);
-  for (const ip of ips) console.log(`  Im WLAN (Handys):      http://${ip}:${actual}/play`);
+  console.log('  Nur auf diesem Laptop erreichbar. Kein WLAN und kein Internet nötig.');
   console.log('');
   console.log(`  Spielbare Formate: ${playable.join(', ') || '–'}`);
   console.log(store.restored ? '  Letzter Spielstand wiederhergestellt.' : '  Neues Spiel angelegt.');
@@ -216,14 +241,4 @@ function loadConfig() {
     console.error(`config.json ist kein gültiges JSON: ${err.message}`);
     process.exit(1);
   }
-}
-
-function localIps() {
-  const result = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const net of list ?? []) {
-      if (net.family === 'IPv4' && !net.internal) result.push(net.address);
-    }
-  }
-  return result;
 }

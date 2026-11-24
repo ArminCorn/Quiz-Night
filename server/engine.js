@@ -54,6 +54,14 @@ export function createEngine(registry) {
       fail(message) {
         throw new ActionError(message);
       },
+      // Eingaben des Gamemasters prüfen (z. B. von Papierkarten abgetippt).
+      // Immer benutzen, bevor Text oder Zahlen in den Zustand wandern.
+      cleanText(value, { max = 200, label = 'Text', allowEmpty = false } = {}) {
+        return cleanText(value, { max, label, allowEmpty });
+      },
+      cleanInt(value, { min = 0, max = 1000, label = 'Zahl' } = {}) {
+        return cleanInt(value, { min, max, label });
+      },
     };
   }
 
@@ -263,4 +271,21 @@ function assertTeam(team) {
 
 function assertInt(value, what) {
   if (!Number.isInteger(value)) throw new ActionError(`${what} muss eine ganze Zahl sein.`);
+}
+
+/** Text aus einer Eingabemaske: getrimmt, Leerraum vereinheitlicht, Länge begrenzt. */
+export function cleanText(value, { max = 200, label = 'Text', allowEmpty = false } = {}) {
+  if (typeof value !== 'string') throw new ActionError(`${label}: bitte Text eingeben.`);
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text && !allowEmpty) throw new ActionError(`${label} darf nicht leer sein.`);
+  if (text.length > max) throw new ActionError(`${label} ist zu lang (höchstens ${max} Zeichen).`);
+  return text;
+}
+
+/** Ganze Zahl aus einer Eingabemaske (Zahl oder Text wie "3"), mit Grenzen. */
+export function cleanInt(value, { min = 0, max = 1000, label = 'Zahl' } = {}) {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  if (!Number.isInteger(n)) throw new ActionError(`${label}: bitte eine ganze Zahl eingeben.`);
+  if (n < min || n > max) throw new ActionError(`${label} muss zwischen ${min} und ${max} liegen.`);
+  return n;
 }

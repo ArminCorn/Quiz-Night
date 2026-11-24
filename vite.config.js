@@ -24,7 +24,6 @@ export default defineConfig({
         index: resolve(web, 'index.html'),
         screen: resolve(web, 'screen/index.html'),
         host: resolve(web, 'host/index.html'),
-        play: resolve(web, 'play/index.html'),
       },
     },
   },

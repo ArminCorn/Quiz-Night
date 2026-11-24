@@ -225,7 +225,11 @@ function createPlayPhase(v) {
   phaseBody.append(box, h('div', { class: 'phase-actions' }, endBtn));
 
   const inner = client?.mountHost
-    ? client.mountHost(box, { send: (name, payload) => send('format', name, payload) })
+    ? client.mountHost(box, {
+        send: (name, payload) => send('format', name, payload),
+        toast,
+        formatId: v.current.id,
+      })
     : null;
   if (!inner) box.append(h('p', { class: 'hint' }, 'Dieses Format hat keine Gamemaster-Steuerung.'));
 

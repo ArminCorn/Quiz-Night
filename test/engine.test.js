@@ -165,3 +165,35 @@ test('Store: defekte Datei führt zu neuem Spiel statt Absturz', async () => {
     rmSync(dir, { recursive: true, force: true });
   }
 });
+
+test('Eingabe-Helfer für Eingabemasken: cleanText und cleanInt', () => {
+  const engine = createEngine(fakeRegistry());
+  // über api in einer Format-Aktion erreichbar
+  const probe = {
+    init: () => ({ items: [] }),
+    actions: {
+      add(fs, { name, votes }, api) {
+        fs.items.push({ name: api.cleanText(name, { max: 10, label: 'Name' }), votes: api.cleanInt(votes, { min: 0, max: 20, label: 'Stimmen' }) });
+      },
+    },
+  };
+  const reg = fakeRegistry();
+  reg.module = () => probe;
+  const e = createEngine(reg);
+  let s = createInitialState(config);
+  s = e.dispatch(s, { scope: 'core', name: 'next' }).state;
+  s = e.dispatch(s, { scope: 'core', name: 'next' }).state;
+  s = e.dispatch(s, { scope: 'format', name: 'add', payload: { name: '  Anna   Maria ', votes: '3' } }).state;
+  assert.deepEqual(s.formatState.items, [{ name: 'Anna Maria', votes: 3 }]);
+  for (const payload of [
+    { name: '', votes: 1 },
+    { name: 'x'.repeat(11), votes: 1 },
+    { name: 5, votes: 1 },
+    { name: 'ok', votes: 'abc' },
+    { name: 'ok', votes: 21 },
+    { name: 'ok', votes: 1.5 },
+  ]) {
+    assert.throws(() => e.dispatch(s, { scope: 'format', name: 'add', payload }), ActionError, JSON.stringify(payload));
+  }
+  assert.ok(engine);
+});
