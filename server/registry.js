@@ -76,6 +76,7 @@ function validateServerModule(id, mod) {
     if (typeof mod.init !== 'function') problems.push('init(content, api) fehlt');
     if (mod.actions != null && typeof mod.actions !== 'object') problems.push('actions muss ein Objekt sein');
     if (mod.view != null && typeof mod.view !== 'function') problems.push('view(state, role) muss eine Funktion sein');
+    if (mod.onBuzz != null && typeof mod.onBuzz !== 'function') problems.push('onBuzz(state, team, api) muss eine Funktion sein');
   }
   if (problems.length) throw new Error(`formats/${id}/server.js: ${problems.join(', ')}`);
 }

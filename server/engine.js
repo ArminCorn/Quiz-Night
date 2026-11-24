@@ -26,7 +26,13 @@ export function createInitialState({ teams }) {
     totalPoints: { A: 0, B: 0 },
     summary: null,
     formatState: null,
+    buzzer: closedBuzzer(),
   };
+}
+
+/** Buzzer: wer darf buzzern (open) und wer hat zuerst gebuzzert (winner). */
+export function closedBuzzer() {
+  return { open: { A: false, B: false }, winner: null };
 }
 
 export function createEngine(registry) {
@@ -62,6 +68,27 @@ export function createEngine(registry) {
       cleanInt(value, { min = 0, max = 1000, label = 'Zahl' } = {}) {
         return cleanInt(value, { min, max, label });
       },
+      // Buzzer steuern. Der erste gültige Buzz sperrt automatisch alles und
+      // ruft onBuzz(state, team, api) des Formats auf.
+      buzzer: {
+        /** Freigeben, z. B. open(['A', 'B']) oder open(['B']). Setzt den letzten Buzz zurück. */
+        open(teams = TEAMS) {
+          for (const t of teams) assertTeam(t);
+          draft.buzzer = { open: { A: teams.includes('A'), B: teams.includes('B') }, winner: null };
+        },
+        /** Alle sperren. Wer zuletzt gebuzzert hat, bleibt sichtbar. */
+        lock() {
+          draft.buzzer.open = { A: false, B: false };
+        },
+        /** Alle sperren und den letzten Buzz vergessen. */
+        reset() {
+          draft.buzzer = closedBuzzer();
+        },
+        /** Aktueller Stand: { open: { A, B }, winner } */
+        get state() {
+          return structuredClone(draft.buzzer);
+        },
+      },
     };
   }
 
@@ -72,6 +99,7 @@ export function createEngine(registry) {
     const mod = registry.module(id);
     draft.current = id;
     draft.phase = 'intro';
+    draft.buzzer = closedBuzzer();
     draft.formatPoints = { A: 0, B: 0 };
     draft.summary = null;
     draft.formatState = null;
@@ -88,6 +116,7 @@ export function createEngine(registry) {
     const id = draft.current;
     if (!draft.done.includes(id)) draft.done.push(id);
     draft.phase = 'summary';
+    draft.buzzer = closedBuzzer();
     draft.summary = {
       formatId: id,
       before: { ...draft.totalPoints },
@@ -140,6 +169,7 @@ export function createEngine(registry) {
             draft.formatState = null;
             draft.formatPoints = { A: 0, B: 0 };
             draft.summary = null;
+            draft.buzzer = closedBuzzer();
             fx.label = 'Zur Übersicht';
           }
           return;
@@ -153,6 +183,23 @@ export function createEngine(registry) {
 
     endFormat(draft, payload, fx) {
       endFormat(draft, fx);
+    },
+
+    // Buzzer gedrückt (Gamepad, Tastatur-Ersatz oder manuell durch den Gamemaster).
+    // Nicht freigegeben → still ignorieren (keine Änderung, kein Rückgängig-Eintrag).
+    buzz(draft, payload, fx) {
+      const { team } = payload;
+      assertTeam(team);
+      if (draft.phase !== 'play' || !draft.buzzer?.open?.[team]) return;
+      draft.buzzer = { open: { A: false, B: false }, winner: team };
+      fx.effects.push({ sound: 'buzz' }, { buzz: team });
+      fx.label = `Buzz: ${draft.teams[team]}${payload.source === 'manual' ? ' (manuell)' : ''}`;
+      const mod = registry.module(draft.current);
+      if (typeof mod?.onBuzz === 'function') {
+        const result = mod.onBuzz(draft.formatState, team, makeApi(draft, fx));
+        if (result !== undefined) draft.formatState = result;
+        if (fx.endFormat) endFormat(draft, fx);
+      }
     },
 
     adjustPoints(draft, payload, fx) {
@@ -244,6 +291,7 @@ export function createEngine(registry) {
         active: f.id === state.current,
       })),
       next: next ? { id: next.id, name: next.name, color: next.color } : null,
+      buzzer: state.buzzer ?? closedBuzzer(),
       format,
     };
   }
@@ -259,6 +307,7 @@ export function createEngine(registry) {
       state.formatPoints = { A: 0, B: 0 };
     }
     state.done = state.done.filter((id) => registry.get(id));
+    if (!state.buzzer || state.phase !== 'play') state.buzzer = closedBuzzer();
     return state;
   }
 

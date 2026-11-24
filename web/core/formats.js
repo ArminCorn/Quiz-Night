@@ -18,3 +18,8 @@ export function formatClient(id) {
 export function resolveLabel(label, view) {
   return typeof label === 'function' ? label(view) : label;
 }
+
+/** Alle Client-Module (id → Modul), z. B. um Tastenkonflikte zu prüfen. */
+export function allFormatClients() {
+  return { ...clients };
+}

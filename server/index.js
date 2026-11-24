@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { ActionError, createEngine } from './engine.js';
 import { loadRegistry } from './registry.js';
+import { createSettingsStore } from './settings.js';
 import { createStore } from './store.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
@@ -25,11 +26,13 @@ const AUDIO_EXT = new Set(['.mp3', '.ogg', '.wav', '.m4a', '.aac', '.webm', '.fl
 const config = loadConfig();
 const registry = await loadRegistry({ formatsDir: join(ROOT, 'formats'), formatOrder: config.formatOrder });
 const engine = createEngine(registry);
-const store = createStore({
-  dataDir: process.env.QUIZ_DATA_DIR ? resolve(process.env.QUIZ_DATA_DIR) : join(ROOT, 'data'),
-  engine,
-  config,
-});
+const dataDir = process.env.QUIZ_DATA_DIR ? resolve(process.env.QUIZ_DATA_DIR) : join(ROOT, 'data');
+const store = createStore({ dataDir, engine, config });
+const settings = createSettingsStore({ dataDir, config });
+
+// Buzzer-Testmodus: solange der Testscreen im Gamemaster-Fenster offen ist,
+// lösen Buzzer im Spiel nichts aus. Gilt nur, solange dieses Fenster verbunden ist.
+let buzzerTestOwner = null;
 
 // ---------------------------------------------------------------- HTTP
 
@@ -128,6 +131,15 @@ function stateMessage(role, { effects = [], animate = false } = {}) {
   return JSON.stringify({ t: 'state', seq, view, effects, animate });
 }
 
+function settingsMessage() {
+  return JSON.stringify({ t: 'settings', settings: settings.get(), buzzerTest: Boolean(buzzerTestOwner) });
+}
+
+function broadcastSettings() {
+  const msg = settingsMessage();
+  for (const client of wss.clients) if (client.readyState === 1 && client.role) client.send(msg);
+}
+
 function broadcast(result) {
   seq += 1;
   const cache = {};
@@ -141,6 +153,12 @@ function broadcast(result) {
 wss.on('connection', (ws) => {
   ws.isAlive = true;
   ws.on('pong', () => (ws.isAlive = true));
+  ws.on('close', () => {
+    if (buzzerTestOwner === ws) {
+      buzzerTestOwner = null;
+      broadcastSettings();
+    }
+  });
 
   ws.on('message', (raw) => {
     let msg;
@@ -153,11 +171,37 @@ wss.on('connection', (ws) => {
     if (msg.t === 'hello') {
       ws.role = ROLES.includes(msg.role) ? msg.role : 'screen';
       ws.send(stateMessage(ws.role));
+      ws.send(settingsMessage());
+      return;
+    }
+
+    if (msg.t === 'settings') {
+      if (ws.role !== 'host') return sendError(ws, 'Nur die Gamemaster-Ansicht darf Einstellungen ändern.');
+      try {
+        settings.updateBuzzer(msg.buzzer ?? {});
+        broadcastSettings();
+      } catch (err) {
+        sendError(ws, err.message);
+        ws.send(settingsMessage()); // Anzeige auf den gespeicherten Stand zurücksetzen
+      }
+      return;
+    }
+
+    if (msg.t === 'buzzerTest') {
+      if (ws.role !== 'host') return;
+      if (msg.on) buzzerTestOwner = ws;
+      else if (buzzerTestOwner === ws) buzzerTestOwner = null;
+      broadcastSettings();
       return;
     }
 
     if (msg.t === 'action') {
-      if (ws.role !== 'host') return sendError(ws, 'Nur die Gamemaster-Ansicht darf steuern.');
+      const isBuzz = msg.scope === 'core' && msg.name === 'buzz';
+      // Das Beamer-Fenster liest die Buzzer als Rückfallebene mit, darf aber nur buzzern.
+      if (ws.role !== 'host' && !(ws.role === 'screen' && isBuzz)) {
+        return sendError(ws, 'Nur die Gamemaster-Ansicht darf steuern.');
+      }
+      if (isBuzz && buzzerTestOwner) return; // Testscreen offen → Buzz zählt nicht
       try {
         const result = store.dispatch({ scope: msg.scope, name: msg.name, payload: msg.payload });
         if (result.changed) broadcast(result);

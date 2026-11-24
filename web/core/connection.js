@@ -3,7 +3,7 @@
 // Der Server schickt nach jeder Änderung den kompletten Stand (view) für die
 // jeweilige Rolle. Die Fenster halten selbst keinen Spielzustand.
 
-export function connect(role, { onState, onError, onStatus } = {}) {
+export function connect(role, { onState, onError, onStatus, onSettings } = {}) {
   let ws = null;
   let attempt = 0;
 
@@ -25,6 +25,7 @@ export function connect(role, { onState, onError, onStatus } = {}) {
         return;
       }
       if (msg.t === 'state') onState?.(msg);
+      else if (msg.t === 'settings') onSettings?.(msg);
       else if (msg.t === 'error') onError?.(msg.message);
     });
 
@@ -39,6 +40,15 @@ export function connect(role, { onState, onError, onStatus } = {}) {
   open();
 
   return {
+    /** Rohe Nachricht schicken (z. B. { t: 'settings', … }). */
+    raw(message) {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify(message));
+        return true;
+      }
+      onError?.('Keine Verbindung zum Server.');
+      return false;
+    },
     /** Aktion an den Server schicken. scope: 'core' | 'format' */
     send(scope, name, payload = {}) {
       if (ws?.readyState === WebSocket.OPEN) {

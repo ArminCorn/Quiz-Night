@@ -3,14 +3,57 @@ import '../styles/base.css';
 import './host.css';
 import { connect } from '../core/connection.js';
 import { formatNumber, h, setText } from '../core/dom.js';
-import { formatClient, resolveLabel } from '../core/formats.js';
+import { allFormatClients, formatClient, resolveLabel } from '../core/formats.js';
+import { createGamepadReader } from '../core/buzzer.js';
+import { createBuzzerPanel } from './buzzer-panel.js';
 
 const TEAMS = ['A', 'B'];
 const PHASE_NAMES = { lobby: 'Übersicht', intro: 'Intro', play: 'Format läuft', summary: 'Zwischenstand' };
 
 let view = null;
-const conn = connect('host', { onState, onError: toast, onStatus });
+let settings = null; // Geräte-Einstellungen (Buzzer-Zuordnung) vom Server
+const conn = connect('host', { onState, onError: toast, onStatus, onSettings });
 const send = (scope, name, payload) => conn.send(scope, name, payload);
+
+// ---------------------------------------------------------------- Buzzer
+const buzzerPanel = createBuzzerPanel({
+  saveBuzzer: (patch) => conn.raw({ t: 'settings', buzzer: patch }),
+  setTesting: (on) => conn.raw({ t: 'buzzerTest', on }),
+  conflictsFor: keyConflict,
+  toast,
+  getTeams: () => view?.teams,
+});
+const gamepads = createGamepadReader({
+  onTeam(team) {
+    if (buzzerPanel.isOpen()) buzzerPanel.lamp(team);
+    else buzz(team, 'gamepad');
+  },
+  onButton: (press) => buzzerPanel.onButton(press),
+  onChange: (pads) => buzzerPanel.onPads(pads),
+});
+
+function buzz(team, source) {
+  if (source === 'manual' && view && !view.buzzer?.open?.[team]) {
+    return toast(`Buzzer für ${view.teams[team]} ist gerade nicht freigegeben.`);
+  }
+  send('core', 'buzz', { team, source });
+}
+
+/** Ist die Taste schon anders belegt? Gibt eine Beschreibung zurück oder null. */
+function keyConflict(key) {
+  if (key === ' ' || key === 'z') return 'Kern (Leertaste / Rückgängig)';
+  for (const [id, client] of Object.entries(allFormatClients())) {
+    const hit = (client.shortcuts ?? []).find((s) => s.key.toLowerCase() === key);
+    if (hit) return `Format „${id}“`;
+  }
+  return null;
+}
+
+function buzzerKeyTeam(key) {
+  const keys = settings?.buzzer?.keys;
+  if (!keys) return null;
+  return key === keys.A ? 'A' : key === keys.B ? 'B' : null;
+}
 
 // ================================================================ Gerüst
 
@@ -29,6 +72,7 @@ const header = h(
     'div',
     { class: 'header-right' },
     h('span', { class: 'status' }, statusDot, statusText),
+    h('button', { class: 'btn btn-ghost', onClick: () => buzzerPanel.open() }, 'Buzzer'),
     h('button', { class: 'btn btn-ghost', onClick: openScreenWindow }, 'Beamer-Fenster öffnen'),
     h('button', { class: 'btn btn-danger-ghost', onClick: newGame }, 'Neues Spiel'),
   ),
@@ -76,6 +120,7 @@ app.append(
     h('div', { class: 'col col-left' }, nextPanel, phasePanel, points.el),
     h('div', { class: 'col col-right' }, previewPanel, undoPanel, legendPanel, chapterPanel),
   ),
+  buzzerPanel.el,
   toasts,
 );
 
@@ -89,6 +134,13 @@ function onStatus(online) {
   statusDot.classList.toggle('is-online', online);
   setText(statusText, online ? 'verbunden' : 'getrennt – verbinde neu …');
   document.body.classList.toggle('is-offline', !online);
+}
+
+function onSettings(msg) {
+  settings = msg.settings;
+  gamepads.setMapping(settings.buzzer.gamepad);
+  buzzerPanel.updateSettings(settings);
+  if (view) renderLegend(view);
 }
 
 function onState(msg) {
@@ -227,6 +279,7 @@ function createPlayPhase(v) {
   const inner = client?.mountHost
     ? client.mountHost(box, {
         send: (name, payload) => send('format', name, payload),
+        buzz: (team) => buzz(team, 'manual'),
         toast,
         formatId: v.current.id,
       })
@@ -322,8 +375,21 @@ function activeShortcuts(v) {
         key: s.key.toLowerCase(),
         keyLabel: s.keyLabel ?? s.key.toUpperCase(),
         label: resolveLabel(s.label, v),
-        run: () => send('format', s.action, s.payload ?? {}),
+        run: s.buzz
+          ? () => buzz(s.buzz, 'manual')
+          : () => send(s.scope === 'core' ? 'core' : 'format', s.action, s.payload ?? {}),
       });
+    }
+    // Tastatur-Buzzer nur zeigen, wenn das Format Buzzer benutzt
+    if (client?.buzzer && settings) {
+      for (const team of TEAMS) {
+        list.push({
+          key: settings.buzzer.keys[team],
+          keyLabel: settings.buzzer.keys[team].toUpperCase(),
+          label: `Tastatur-Buzzer ${v.teams[team]}`,
+          run: () => buzz(team, 'key'),
+        });
+      }
     }
   }
   list.push({ key: 'z', keyLabel: 'Z', label: 'Rückgängig', run: undo });
@@ -337,6 +403,15 @@ function renderLegend(v) {
 
 window.addEventListener('keydown', (e) => {
   if (!view) return;
+  if (buzzerPanel.isOpen()) {
+    // Im Testscreen: Esc schließt, Buzzer-Tasten lassen die Lampe leuchten, sonst nichts
+    if (e.key === 'Escape') return buzzerPanel.close();
+    if (e.target instanceof Element && e.target.closest('input')) return;
+    const team = buzzerKeyTeam(e.key.toLowerCase());
+    if (team && !e.repeat) buzzerPanel.lamp(team);
+    if (e.key === ' ') e.preventDefault();
+    return;
+  }
   if (e.target instanceof Element && e.target.closest('input, textarea, select, [contenteditable]')) return;
   if (e.altKey) return;
   if (e.ctrlKey || e.metaKey) {
@@ -348,7 +423,12 @@ window.addEventListener('keydown', (e) => {
   }
   const key = e.key === ' ' || e.code === 'Space' ? ' ' : e.key.toLowerCase();
   const shortcut = activeShortcuts(view).find((s) => s.key === key);
-  if (!shortcut) return;
+  if (!shortcut) {
+    // Tastatur-Buzzer wirken immer (ohne Freigabe ignoriert sie der Server still)
+    const team = buzzerKeyTeam(key);
+    if (team && !e.repeat) buzz(team, 'key');
+    return;
+  }
   e.preventDefault();
   if (e.repeat) return;
   shortcut.run();

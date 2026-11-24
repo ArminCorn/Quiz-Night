@@ -6,6 +6,7 @@ import './screen.css';
 import { connect } from '../core/connection.js';
 import { h } from '../core/dom.js';
 import { initSounds, playSound } from '../core/sound.js';
+import { createGamepadReader } from '../core/buzzer.js';
 import { fitStage } from '../core/stage.js';
 import { createChapters } from './parts.js';
 import { createScene, sceneKey } from './scenes.js';
@@ -34,7 +35,13 @@ async function start() {
   let prev = null;
   let offlineTimer = null;
 
-  connect('screen', {
+  // Buzzer als Rückfallebene mitlesen (nicht in der Vorschau im Gamemaster-Fenster)
+  const gamepads = preview ? null : createGamepadReader({ onTeam: (team) => conn.send('core', 'buzz', { team, source: 'gamepad-beamer' }) });
+
+  const conn = connect('screen', {
+    onSettings(msg) {
+      gamepads?.setMapping(msg.settings.buzzer.gamepad);
+    },
     onStatus(online) {
       clearTimeout(offlineTimer);
       if (online) offline.hidden = true;
