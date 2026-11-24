@@ -22,11 +22,11 @@ function startKategorien() {
   return { run, get: () => s };
 }
 
-test('Registry: Kategorien ist spielbar, die anderen Formate sind Platzhalter', () => {
+test('Registry: Kategorien ist spielbar, nicht gebaute Formate sind Platzhalter', () => {
   assert.equal(registry.order[0].id, 'kategorien');
   assert.equal(registry.get('kategorien').playable, true);
   assert.equal(registry.order.length, 6);
-  assert.equal(registry.order.filter((f) => f.playable).length, 1);
+  assert.equal(registry.get('quiz').playable, false);
 });
 
 test('Beispiel-Inhalte sind als Beispiel erkennbar', () => {
@@ -76,5 +76,6 @@ test('Nach der letzten Kategorie beendet die Leertaste das Format', () => {
   }
   run('core', 'next');
   assert.equal(get().phase, 'summary');
-  assert.deepEqual(get().summary.add, { A: 3, B: 2 });
+  assert.deepEqual(get().summary.formatPoints, { A: 3, B: 2 });
+  assert.equal(get().summary.winner, 'A');
 });

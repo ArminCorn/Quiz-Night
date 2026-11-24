@@ -196,9 +196,12 @@ function nextStep(v) {
     }
     case 'summary': {
       const s = v.summary;
+      if (s.step === 'result') {
+        return { label: 'Zwischenstand zeigen', detail: `Danach Globalpunkte: ${v.teams.A} +${s.add.A}, ${v.teams.B} +${s.add.B}.` };
+      }
       if (s.applied) return { label: 'Zur Übersicht', detail: 'Der Beamer zeigt den Gesamtstand und das nächste Format.' };
       return {
-        label: 'Punkte in den Gesamtstand übernehmen',
+        label: 'Globalpunkte in den Gesamtstand übernehmen',
         detail: `${v.teams.A} +${s.add.A}, ${v.teams.B} +${s.add.B} – die Zahlen zählen hoch.`,
       };
     }
@@ -298,14 +301,14 @@ function createSummaryPhase() {
   const table = h(
     'table',
     { class: 'summary-table' },
-    h('thead', {}, h('tr', {}, h('th', {}, 'Team'), h('th', {}, 'Vorher'), h('th', {}, 'Format'), h('th', {}, 'Neu'))),
+    h('thead', {}, h('tr', {}, h('th', {}, 'Team'), h('th', {}, 'Formatpunkte'), h('th', {}, 'Gesamt vorher'), h('th', {}, 'Globalpunkte'), h('th', {}, 'Gesamt neu'))),
     h(
       'tbody',
       {},
       TEAMS.map((team) => {
-        rows[team] = { name: h('td'), before: h('td', { class: 'num' }), add: h('td', { class: 'num' }), after: h('td', { class: 'num strong' }) };
+        rows[team] = { name: h('td'), fp: h('td', { class: 'num' }), before: h('td', { class: 'num' }), add: h('td', { class: 'num' }), after: h('td', { class: 'num strong' }) };
         const r = rows[team];
-        return h('tr', {}, r.name, r.before, r.add, r.after);
+        return h('tr', {}, r.name, r.fp, r.before, r.add, r.after);
       }),
     ),
   );
@@ -318,12 +321,16 @@ function createSummaryPhase() {
       const s = x.summary;
       for (const team of TEAMS) {
         const r = rows[team];
-        setText(r.name, x.teams[team]);
+        setText(r.name, `${x.teams[team]}${s.winner === team ? ' (Formatsieger)' : ''}`);
+        setText(r.fp, formatNumber(s.formatPoints?.[team] ?? 0));
         setText(r.before, formatNumber(s.before[team]));
         setText(r.add, `+${formatNumber(s.add[team])}`);
         setText(r.after, formatNumber(s.before[team] + s.add[team]));
       }
-      setText(status, s.applied ? 'Übernommen. Der Beamer zeigt den neuen Gesamtstand.' : 'Noch nicht übernommen. Leertaste startet die Animation auf dem Beamer.');
+      let text = 'Noch nicht übernommen. Leertaste startet die Animation auf dem Beamer.';
+      if (s.step === 'result') text = `Der Beamer zeigt den Formatsieger${s.winner ? '' : ' (Gleichstand: beide bekommen die Globalpunkte)'}. Leertaste zeigt den Zwischenstand.`;
+      else if (s.applied) text = 'Übernommen. Der Beamer zeigt den neuen Gesamtstand.';
+      setText(status, text);
     },
   };
 }

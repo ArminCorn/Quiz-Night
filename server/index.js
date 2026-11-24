@@ -25,7 +25,7 @@ const AUDIO_EXT = new Set(['.mp3', '.ogg', '.wav', '.m4a', '.aac', '.webm', '.fl
 
 const config = loadConfig();
 const registry = await loadRegistry({ formatsDir: join(ROOT, 'formats'), formatOrder: config.formatOrder });
-const engine = createEngine(registry);
+const engine = createEngine(registry, { globalpunkte: config.globalpunkte });
 const dataDir = process.env.QUIZ_DATA_DIR ? resolve(process.env.QUIZ_DATA_DIR) : join(ROOT, 'data');
 const store = createStore({ dataDir, engine, config });
 const settings = createSettingsStore({ dataDir, config });
@@ -274,6 +274,7 @@ function loadConfig() {
     subtitle: '',
     teams: { A: 'Team A', B: 'Team B' },
     formatOrder: [],
+    globalpunkte: { sieger: 10, formate: {} },
     port: 3000,
   };
   const file = join(ROOT, 'config.json');

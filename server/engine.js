@@ -35,7 +35,24 @@ export function closedBuzzer() {
   return { open: { A: false, B: false }, winner: null };
 }
 
-export function createEngine(registry) {
+/**
+ * Globalpunkte am Formatende: Das Team mit mehr Formatpunkten gewinnt das
+ * Format und bekommt `sieger` Globalpunkte, der Verlierer 0. Bei Gleichstand
+ * bekommen beide den vollen Wert. Pro Format abweichend über `formate`.
+ * (config.json → "globalpunkte")
+ */
+export function formatAward(formatId, formatPoints, globalpunkte = {}) {
+  const perFormat = globalpunkte.formate?.[formatId];
+  const value = Number.isInteger(perFormat) ? perFormat : Number.isInteger(globalpunkte.sieger) ? globalpunkte.sieger : 10;
+  const { A, B } = formatPoints;
+  const winner = A > B ? 'A' : B > A ? 'B' : null;
+  return {
+    winner,
+    add: { A: winner === 'B' ? 0 : value, B: winner === 'A' ? 0 : value },
+  };
+}
+
+export function createEngine(registry, { globalpunkte = {} } = {}) {
   const nextPlayable = (state) =>
     registry.order.find((f) => f.playable && !state.done.includes(f.id)) ?? null;
 
@@ -117,10 +134,14 @@ export function createEngine(registry) {
     if (!draft.done.includes(id)) draft.done.push(id);
     draft.phase = 'summary';
     draft.buzzer = closedBuzzer();
+    const award = formatAward(id, draft.formatPoints, globalpunkte);
     draft.summary = {
       formatId: id,
+      formatPoints: { ...draft.formatPoints },
+      winner: award.winner, // 'A' | 'B' | null (Gleichstand)
       before: { ...draft.totalPoints },
-      add: { ...draft.formatPoints },
+      add: award.add, // Globalpunkte
+      step: 'result', // 'result' = Formatsieger-Screen, 'standings' = Zwischenstand
       applied: false,
     };
     fx.label = `${registry.get(id)?.name ?? id} beendet`;
@@ -158,11 +179,14 @@ export function createEngine(registry) {
           return runFormatAction(draft, 'next', payload, fx);
         }
         case 'summary':
-          if (!draft.summary.applied) {
+          if (draft.summary.step === 'result') {
+            draft.summary.step = 'standings';
+            fx.label = 'Zwischenstand gezeigt';
+          } else if (!draft.summary.applied) {
             for (const t of TEAMS) draft.totalPoints[t] += draft.summary.add[t];
             draft.summary.applied = true;
             fx.effects.push({ sound: 'scoreUpdate' });
-            fx.label = 'Zwischenstand übernommen';
+            fx.label = 'Globalpunkte übernommen';
           } else {
             draft.phase = 'lobby';
             draft.current = null;
@@ -308,6 +332,12 @@ export function createEngine(registry) {
     }
     state.done = state.done.filter((id) => registry.get(id));
     if (!state.buzzer || state.phase !== 'play') state.buzzer = closedBuzzer();
+    // Spielstände von vor der Globalpunkte-Regel: direkt beim Zwischenstand weitermachen
+    if (state.summary && !state.summary.step) {
+      state.summary.step = 'standings';
+      state.summary.formatPoints ??= { ...state.summary.add };
+      state.summary.winner ??= null;
+    }
     return state;
   }
 
