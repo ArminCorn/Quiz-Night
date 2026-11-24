@@ -1,6 +1,6 @@
 // Quiz Night – lokaler Server
 //
-// - liefert die Seiten aus (/screen, /host, /play)
+// - liefert die Seiten aus (/screen, /host) – nur auf diesem Laptop (127.0.0.1)
 // - hält den Spielzustand zentral und synchronisiert alle Fenster per WebSocket (/ws)
 // - speichert den Stand laufend in data/state.json
 //
@@ -9,34 +9,57 @@
 import express from 'express';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
-import { networkInterfaces } from 'node:os';
 import { dirname, extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WebSocketServer } from 'ws';
 import { ActionError, createEngine } from './engine.js';
 import { loadRegistry } from './registry.js';
+import { createSettingsStore } from './settings.js';
 import { createStore } from './store.js';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const DEV = process.argv.includes('--dev');
-const ROLES = ['screen', 'host', 'play'];
-const PAGES = { '/': 'index.html', '/screen': 'screen/index.html', '/host': 'host/index.html', '/play': 'play/index.html' };
+const ROLES = ['screen', 'host'];
+const PAGES = { '/': 'index.html', '/screen': 'screen/index.html', '/host': 'host/index.html' };
 const AUDIO_EXT = new Set(['.mp3', '.ogg', '.wav', '.m4a', '.aac', '.webm', '.flac']);
 
 const config = loadConfig();
 const registry = await loadRegistry({ formatsDir: join(ROOT, 'formats'), formatOrder: config.formatOrder });
-const engine = createEngine(registry);
-const store = createStore({
-  dataDir: process.env.QUIZ_DATA_DIR ? resolve(process.env.QUIZ_DATA_DIR) : join(ROOT, 'data'),
-  engine,
-  config,
-});
+const engine = createEngine(registry, { globalpunkte: config.globalpunkte });
+const dataDir = process.env.QUIZ_DATA_DIR ? resolve(process.env.QUIZ_DATA_DIR) : join(ROOT, 'data');
+const store = createStore({ dataDir, engine, config });
+const settings = createSettingsStore({ dataDir, config });
+
+// Buzzer-Testmodus: solange der Testscreen im Gamemaster-Fenster offen ist,
+// lösen Buzzer im Spiel nichts aus. Gilt nur, solange dieses Fenster verbunden ist.
+let buzzerTestOwner = null;
 
 // ---------------------------------------------------------------- HTTP
+
+// Der Server ist nur über localhost erreichbar. Zusätzlich werden Anfragen mit
+// fremdem Host-/Origin-Header abgelehnt, damit keine andere Webseite im Browser
+// des Laptops den Spielstand steuern kann (Schutz vor DNS-Rebinding und
+// Cross-Site-WebSocket).
+const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
+function hostnameOf(value) {
+  try {
+    return new URL(value.includes('://') ? value : `http://${value}`).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+}
+function isLocalHost(value) {
+  const name = value ? hostnameOf(value) : null;
+  return name !== null && (LOCAL_HOSTS.has(name) || name.endsWith('.localhost'));
+}
 
 const app = express();
 const server = createServer(app);
 app.disable('x-powered-by');
+app.use((req, res, next) => {
+  if (isLocalHost(req.headers.host)) return next();
+  res.status(403).type('text').send('Quiz Night ist nur über localhost erreichbar.');
+});
 
 // Allgemeine Einstellungen für alle Ansichten (Titel usw.)
 app.get('/api/config', (req, res) => {
@@ -94,6 +117,11 @@ let seq = 0;
 
 server.on('upgrade', (req, socket, head) => {
   if (new URL(req.url, 'http://x').pathname !== '/ws') return; // z. B. Vite-HMR im Dev-Modus
+  const origin = req.headers.origin;
+  if (!isLocalHost(req.headers.host) || (origin && !isLocalHost(origin))) {
+    socket.write('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    return socket.destroy();
+  }
   wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
 });
 
@@ -101,6 +129,15 @@ function stateMessage(role, { effects = [], animate = false } = {}) {
   const view = engine.view(store.state, role);
   if (role === 'host') view.undo = store.undoInfo();
   return JSON.stringify({ t: 'state', seq, view, effects, animate });
+}
+
+function settingsMessage() {
+  return JSON.stringify({ t: 'settings', settings: settings.get(), buzzerTest: Boolean(buzzerTestOwner) });
+}
+
+function broadcastSettings() {
+  const msg = settingsMessage();
+  for (const client of wss.clients) if (client.readyState === 1 && client.role) client.send(msg);
 }
 
 function broadcast(result) {
@@ -116,6 +153,12 @@ function broadcast(result) {
 wss.on('connection', (ws) => {
   ws.isAlive = true;
   ws.on('pong', () => (ws.isAlive = true));
+  ws.on('close', () => {
+    if (buzzerTestOwner === ws) {
+      buzzerTestOwner = null;
+      broadcastSettings();
+    }
+  });
 
   ws.on('message', (raw) => {
     let msg;
@@ -128,11 +171,37 @@ wss.on('connection', (ws) => {
     if (msg.t === 'hello') {
       ws.role = ROLES.includes(msg.role) ? msg.role : 'screen';
       ws.send(stateMessage(ws.role));
+      ws.send(settingsMessage());
+      return;
+    }
+
+    if (msg.t === 'settings') {
+      if (ws.role !== 'host') return sendError(ws, 'Nur die Gamemaster-Ansicht darf Einstellungen ändern.');
+      try {
+        settings.updateBuzzer(msg.buzzer ?? {});
+        broadcastSettings();
+      } catch (err) {
+        sendError(ws, err.message);
+        ws.send(settingsMessage()); // Anzeige auf den gespeicherten Stand zurücksetzen
+      }
+      return;
+    }
+
+    if (msg.t === 'buzzerTest') {
+      if (ws.role !== 'host') return;
+      if (msg.on) buzzerTestOwner = ws;
+      else if (buzzerTestOwner === ws) buzzerTestOwner = null;
+      broadcastSettings();
       return;
     }
 
     if (msg.t === 'action') {
-      if (ws.role !== 'host') return sendError(ws, 'Nur die Gamemaster-Ansicht darf steuern.');
+      const isBuzz = msg.scope === 'core' && msg.name === 'buzz';
+      // Das Beamer-Fenster liest die Buzzer als Rückfallebene mit, darf aber nur buzzern.
+      if (ws.role !== 'host' && !(ws.role === 'screen' && isBuzz)) {
+        return sendError(ws, 'Nur die Gamemaster-Ansicht darf steuern.');
+      }
+      if (isBuzz && buzzerTestOwner) return; // Testscreen offen → Buzz zählt nicht
       try {
         const result = store.dispatch({ scope: msg.scope, name: msg.name, payload: msg.payload });
         if (result.changed) broadcast(result);
@@ -164,6 +233,7 @@ wss.on('close', () => clearInterval(heartbeat));
 // ---------------------------------------------------------------- Start
 
 const port = process.env.PORT != null ? Number(process.env.PORT) : config.port;
+const HOST = '127.0.0.1'; // bewusst nur lokal: kein WLAN, keine anderen Geräte
 server.on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`\nPort ${port} ist schon belegt. Läuft Quiz Night bereits in einem anderen Fenster?`);
@@ -173,16 +243,15 @@ server.on('error', (err) => {
   throw err;
 });
 
-server.listen(port, '0.0.0.0', () => {
+server.listen(port, HOST, () => {
   const actual = server.address().port;
-  const ips = localIps();
   const playable = registry.order.filter((f) => f.playable).map((f) => f.name);
   console.log('');
   console.log(`  QUIZ NIGHT läuft${DEV ? ' (Entwicklungsmodus)' : ''}`);
   console.log('');
   console.log(`  Gamemaster (Laptop):   http://localhost:${actual}/host`);
   console.log(`  Beamer (Vollbild):     http://localhost:${actual}/screen`);
-  for (const ip of ips) console.log(`  Im WLAN (Handys):      http://${ip}:${actual}/play`);
+  console.log('  Nur auf diesem Laptop erreichbar. Kein WLAN und kein Internet nötig.');
   console.log('');
   console.log(`  Spielbare Formate: ${playable.join(', ') || '–'}`);
   console.log(store.restored ? '  Letzter Spielstand wiederhergestellt.' : '  Neues Spiel angelegt.');
@@ -205,6 +274,7 @@ function loadConfig() {
     subtitle: '',
     teams: { A: 'Team A', B: 'Team B' },
     formatOrder: [],
+    globalpunkte: { sieger: 10, formate: {} },
     port: 3000,
   };
   const file = join(ROOT, 'config.json');
@@ -216,14 +286,4 @@ function loadConfig() {
     console.error(`config.json ist kein gültiges JSON: ${err.message}`);
     process.exit(1);
   }
-}
-
-function localIps() {
-  const result = [];
-  for (const list of Object.values(networkInterfaces())) {
-    for (const net of list ?? []) {
-      if (net.family === 'IPv4' && !net.internal) result.push(net.address);
-    }
-  }
-  return result;
 }

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
-import { ActionError, createEngine, createInitialState } from '../server/engine.js';
+import { ActionError, createEngine, createInitialState, formatAward } from '../server/engine.js';
 import { createStore } from '../server/store.js';
 
 // Ein Mini-Format: "tap" vergibt einen Punkt, "next" zählt hoch und endet nach 2 Schritten.
@@ -65,12 +65,24 @@ test('kompletter Ablauf: Übersicht → Intro → Format → Zwischenstand → �
   run('core', 'next'); // step 2
   r = run('core', 'next'); // Format endet von selbst
   assert.equal(s.phase, 'summary');
-  assert.deepEqual(s.summary, { formatId: 'tap', before: { A: 0, B: 0 }, add: { A: 2, B: 1 }, applied: false });
+  assert.deepEqual(s.summary, {
+    formatId: 'tap',
+    formatPoints: { A: 2, B: 1 },
+    winner: 'A',
+    before: { A: 0, B: 0 },
+    add: { A: 10, B: 0 }, // Sieger bekommt die Globalpunkte (Standard 10)
+    step: 'result',
+    applied: false,
+  });
   assert.deepEqual(s.done, ['tap']);
+
+  run('core', 'next'); // Formatsieger-Screen → Zwischenstand
+  assert.equal(s.summary.step, 'standings');
+  assert.deepEqual(s.totalPoints, { A: 0, B: 0 });
 
   r = run('core', 'next'); // übernehmen
   assert.equal(s.summary.applied, true);
-  assert.deepEqual(s.totalPoints, { A: 2, B: 1 });
+  assert.deepEqual(s.totalPoints, { A: 10, B: 0 });
   assert.deepEqual(r.effects, [{ sound: 'scoreUpdate' }]);
 
   run('core', 'next'); // zur Übersicht
@@ -164,4 +176,54 @@ test('Store: defekte Datei führt zu neuem Spiel statt Absturz', async () => {
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
+});
+
+test('Eingabe-Helfer für Eingabemasken: cleanText und cleanInt', () => {
+  const engine = createEngine(fakeRegistry());
+  // über api in einer Format-Aktion erreichbar
+  const probe = {
+    init: () => ({ items: [] }),
+    actions: {
+      add(fs, { name, votes }, api) {
+        fs.items.push({ name: api.cleanText(name, { max: 10, label: 'Name' }), votes: api.cleanInt(votes, { min: 0, max: 20, label: 'Stimmen' }) });
+      },
+    },
+  };
+  const reg = fakeRegistry();
+  reg.module = () => probe;
+  const e = createEngine(reg);
+  let s = createInitialState(config);
+  s = e.dispatch(s, { scope: 'core', name: 'next' }).state;
+  s = e.dispatch(s, { scope: 'core', name: 'next' }).state;
+  s = e.dispatch(s, { scope: 'format', name: 'add', payload: { name: '  Anna   Maria ', votes: '3' } }).state;
+  assert.deepEqual(s.formatState.items, [{ name: 'Anna Maria', votes: 3 }]);
+  for (const payload of [
+    { name: '', votes: 1 },
+    { name: 'x'.repeat(11), votes: 1 },
+    { name: 5, votes: 1 },
+    { name: 'ok', votes: 'abc' },
+    { name: 'ok', votes: 21 },
+    { name: 'ok', votes: 1.5 },
+  ]) {
+    assert.throws(() => e.dispatch(s, { scope: 'format', name: 'add', payload }), ActionError, JSON.stringify(payload));
+  }
+  assert.ok(engine);
+});
+
+test('Globalpunkte: Sieger bekommt den Wert, Verlierer 0, Gleichstand beide, pro Format abweichend', () => {
+  const cfg = { sieger: 7, formate: { laender: 12 } };
+  assert.deepEqual(formatAward('kategorien', { A: 3, B: 2 }, cfg), { winner: 'A', add: { A: 7, B: 0 } });
+  assert.deepEqual(formatAward('kategorien', { A: 0, B: 5 }, cfg), { winner: 'B', add: { A: 0, B: 7 } });
+  assert.deepEqual(formatAward('kategorien', { A: 4, B: 4 }, cfg), { winner: null, add: { A: 7, B: 7 } });
+  assert.deepEqual(formatAward('laender', { A: 155, B: 100 }, cfg), { winner: 'A', add: { A: 12, B: 0 } });
+  assert.deepEqual(formatAward('x', { A: 1, B: 0 }, {}), { winner: 'A', add: { A: 10, B: 0 } }, 'Standard 10');
+
+  // über die Engine mit Konfiguration
+  const engine = createEngine(fakeRegistry(), { globalpunkte: { sieger: 5 } });
+  let s = createInitialState(config);
+  for (const [scope, name, payload] of [['core', 'next'], ['core', 'next'], ['format', 'tap', { team: 'B' }], ['format', 'tap', { team: 'A' }], ['core', 'endFormat']]) {
+    s = engine.dispatch(s, { scope, name, payload }).state;
+  }
+  assert.equal(s.summary.winner, null);
+  assert.deepEqual(s.summary.add, { A: 5, B: 5 });
 });

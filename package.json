@@ -12,7 +12,9 @@
     "serve": "node server/index.js",
     "build": "vite build",
     "dev": "node server/index.js --dev",
-    "test": "node --test \"test/**/*.test.js\""
+    "test": "node --test \"test/**/*.test.js\"",
+    "land": "node scripts/land.js",
+    "weltkarte": "node scripts/weltkarte.js"
   },
   "dependencies": {
     "@fontsource-variable/archivo": "^5.2.8",
@@ -20,5 +22,14 @@
     "express": "^4.21.2",
     "vite": "^6.4.1",
     "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@resvg/resvg-wasm": "^2.6.2",
+    "countries-list": "^3.4.1",
+    "d3-geo": "^3.1.1",
+    "i18n-iso-countries": "^7.14.0",
+    "svg-country-flags": "^1.2.10",
+    "topojson-client": "^3.1.0",
+    "world-atlas": "^2.0.2"
   }
 }

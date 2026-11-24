@@ -1,0 +1,116 @@
+{
+  "_hinweis": "Länder für Länderraten. Neues Land: npm run land -- DE (erzeugt alles außer dem Tipp). Einträge mit [LAND EINTRAGEN] oder [TIPP EINTRAGEN] werden im Spiel übersprungen. Reihenfolge hier = Spielreihenfolge. Die Reihenfolge der Farben ist egal, der Beamer sortiert sie nach Helligkeit.",
+  "punkte": [100, 75, 55, 40],
+  "laender": [
+    {
+      "iso": "JP",
+      "name": "Japan",
+      "kontinent": "Asien",
+      "farben": ["#BC002D", "#FFFFFF"],
+      "umriss": "umrisse/jp.svg",
+      "flagge": "flaggen/jp.svg",
+      "tipp": "Beispiel-Tipp: Heimat von Sushi, Shinkansen und Kirschblütenfesten.",
+      "nurKernterritorium": true,
+      "beispiel": true
+    },
+    {
+      "iso": "BR",
+      "name": "Brasilien",
+      "kontinent": "Südamerika",
+      "farben": ["#002776", "#009B3A", "#FEDF00", "#FFFFFF"],
+      "umriss": "umrisse/br.svg",
+      "flagge": "flaggen/br.svg",
+      "tipp": "Beispiel-Tipp: Rekord-Fußballweltmeister mit dem berühmtesten Karneval der Welt.",
+      "nurKernterritorium": true,
+      "beispiel": true
+    },
+    {
+      "iso": "SE",
+      "name": "Schweden",
+      "kontinent": "Europa",
+      "farben": ["#006AA7", "#FECC00"],
+      "umriss": "umrisse/se.svg",
+      "flagge": "flaggen/se.svg",
+      "tipp": "Beispiel-Tipp: Heimat von Pippi Langstrumpf, Elchen und einem großen Möbelhaus.",
+      "nurKernterritorium": true,
+      "beispiel": true
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    },
+    {
+      "iso": "",
+      "name": "[LAND EINTRAGEN]",
+      "kontinent": "",
+      "farben": [],
+      "tipp": "[TIPP EINTRAGEN]",
+      "umriss": "",
+      "flagge": "",
+      "nurKernterritorium": true,
+      "beispiel": false
+    }
+  ]
+}

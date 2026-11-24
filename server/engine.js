@@ -26,10 +26,33 @@ export function createInitialState({ teams }) {
     totalPoints: { A: 0, B: 0 },
     summary: null,
     formatState: null,
+    buzzer: closedBuzzer(),
   };
 }
 
-export function createEngine(registry) {
+/** Buzzer: wer darf buzzern (open) und wer hat zuerst gebuzzert (winner). */
+export function closedBuzzer() {
+  return { open: { A: false, B: false }, winner: null };
+}
+
+/**
+ * Globalpunkte am Formatende: Das Team mit mehr Formatpunkten gewinnt das
+ * Format und bekommt `sieger` Globalpunkte, der Verlierer 0. Bei Gleichstand
+ * bekommen beide den vollen Wert. Pro Format abweichend über `formate`.
+ * (config.json → "globalpunkte")
+ */
+export function formatAward(formatId, formatPoints, globalpunkte = {}) {
+  const perFormat = globalpunkte.formate?.[formatId];
+  const value = Number.isInteger(perFormat) ? perFormat : Number.isInteger(globalpunkte.sieger) ? globalpunkte.sieger : 10;
+  const { A, B } = formatPoints;
+  const winner = A > B ? 'A' : B > A ? 'B' : null;
+  return {
+    winner,
+    add: { A: winner === 'B' ? 0 : value, B: winner === 'A' ? 0 : value },
+  };
+}
+
+export function createEngine(registry, { globalpunkte = {} } = {}) {
   const nextPlayable = (state) =>
     registry.order.find((f) => f.playable && !state.done.includes(f.id)) ?? null;
 
@@ -54,6 +77,35 @@ export function createEngine(registry) {
       fail(message) {
         throw new ActionError(message);
       },
+      // Eingaben des Gamemasters prüfen (z. B. von Papierkarten abgetippt).
+      // Immer benutzen, bevor Text oder Zahlen in den Zustand wandern.
+      cleanText(value, { max = 200, label = 'Text', allowEmpty = false } = {}) {
+        return cleanText(value, { max, label, allowEmpty });
+      },
+      cleanInt(value, { min = 0, max = 1000, label = 'Zahl' } = {}) {
+        return cleanInt(value, { min, max, label });
+      },
+      // Buzzer steuern. Der erste gültige Buzz sperrt automatisch alles und
+      // ruft onBuzz(state, team, api) des Formats auf.
+      buzzer: {
+        /** Freigeben, z. B. open(['A', 'B']) oder open(['B']). Setzt den letzten Buzz zurück. */
+        open(teams = TEAMS) {
+          for (const t of teams) assertTeam(t);
+          draft.buzzer = { open: { A: teams.includes('A'), B: teams.includes('B') }, winner: null };
+        },
+        /** Alle sperren. Wer zuletzt gebuzzert hat, bleibt sichtbar. */
+        lock() {
+          draft.buzzer.open = { A: false, B: false };
+        },
+        /** Alle sperren und den letzten Buzz vergessen. */
+        reset() {
+          draft.buzzer = closedBuzzer();
+        },
+        /** Aktueller Stand: { open: { A, B }, winner } */
+        get state() {
+          return structuredClone(draft.buzzer);
+        },
+      },
     };
   }
 
@@ -64,6 +116,7 @@ export function createEngine(registry) {
     const mod = registry.module(id);
     draft.current = id;
     draft.phase = 'intro';
+    draft.buzzer = closedBuzzer();
     draft.formatPoints = { A: 0, B: 0 };
     draft.summary = null;
     draft.formatState = null;
@@ -80,10 +133,15 @@ export function createEngine(registry) {
     const id = draft.current;
     if (!draft.done.includes(id)) draft.done.push(id);
     draft.phase = 'summary';
+    draft.buzzer = closedBuzzer();
+    const award = formatAward(id, draft.formatPoints, globalpunkte);
     draft.summary = {
       formatId: id,
+      formatPoints: { ...draft.formatPoints },
+      winner: award.winner, // 'A' | 'B' | null (Gleichstand)
       before: { ...draft.totalPoints },
-      add: { ...draft.formatPoints },
+      add: award.add, // Globalpunkte
+      step: 'result', // 'result' = Formatsieger-Screen, 'standings' = Zwischenstand
       applied: false,
     };
     fx.label = `${registry.get(id)?.name ?? id} beendet`;
@@ -121,17 +179,21 @@ export function createEngine(registry) {
           return runFormatAction(draft, 'next', payload, fx);
         }
         case 'summary':
-          if (!draft.summary.applied) {
+          if (draft.summary.step === 'result') {
+            draft.summary.step = 'standings';
+            fx.label = 'Zwischenstand gezeigt';
+          } else if (!draft.summary.applied) {
             for (const t of TEAMS) draft.totalPoints[t] += draft.summary.add[t];
             draft.summary.applied = true;
             fx.effects.push({ sound: 'scoreUpdate' });
-            fx.label = 'Zwischenstand übernommen';
+            fx.label = 'Globalpunkte übernommen';
           } else {
             draft.phase = 'lobby';
             draft.current = null;
             draft.formatState = null;
             draft.formatPoints = { A: 0, B: 0 };
             draft.summary = null;
+            draft.buzzer = closedBuzzer();
             fx.label = 'Zur Übersicht';
           }
           return;
@@ -145,6 +207,23 @@ export function createEngine(registry) {
 
     endFormat(draft, payload, fx) {
       endFormat(draft, fx);
+    },
+
+    // Buzzer gedrückt (Gamepad, Tastatur-Ersatz oder manuell durch den Gamemaster).
+    // Nicht freigegeben → still ignorieren (keine Änderung, kein Rückgängig-Eintrag).
+    buzz(draft, payload, fx) {
+      const { team } = payload;
+      assertTeam(team);
+      if (draft.phase !== 'play' || !draft.buzzer?.open?.[team]) return;
+      draft.buzzer = { open: { A: false, B: false }, winner: team };
+      fx.effects.push({ sound: 'buzz' }, { buzz: team });
+      fx.label = `Buzz: ${draft.teams[team]}${payload.source === 'manual' ? ' (manuell)' : ''}`;
+      const mod = registry.module(draft.current);
+      if (typeof mod?.onBuzz === 'function') {
+        const result = mod.onBuzz(draft.formatState, team, makeApi(draft, fx));
+        if (result !== undefined) draft.formatState = result;
+        if (fx.endFormat) endFormat(draft, fx);
+      }
     },
 
     adjustPoints(draft, payload, fx) {
@@ -236,6 +315,7 @@ export function createEngine(registry) {
         active: f.id === state.current,
       })),
       next: next ? { id: next.id, name: next.name, color: next.color } : null,
+      buzzer: state.buzzer ?? closedBuzzer(),
       format,
     };
   }
@@ -251,6 +331,13 @@ export function createEngine(registry) {
       state.formatPoints = { A: 0, B: 0 };
     }
     state.done = state.done.filter((id) => registry.get(id));
+    if (!state.buzzer || state.phase !== 'play') state.buzzer = closedBuzzer();
+    // Spielstände von vor der Globalpunkte-Regel: direkt beim Zwischenstand weitermachen
+    if (state.summary && !state.summary.step) {
+      state.summary.step = 'standings';
+      state.summary.formatPoints ??= { ...state.summary.add };
+      state.summary.winner ??= null;
+    }
     return state;
   }
 
@@ -263,4 +350,21 @@ function assertTeam(team) {
 
 function assertInt(value, what) {
   if (!Number.isInteger(value)) throw new ActionError(`${what} muss eine ganze Zahl sein.`);
+}
+
+/** Text aus einer Eingabemaske: getrimmt, Leerraum vereinheitlicht, Länge begrenzt. */
+export function cleanText(value, { max = 200, label = 'Text', allowEmpty = false } = {}) {
+  if (typeof value !== 'string') throw new ActionError(`${label}: bitte Text eingeben.`);
+  const text = value.replace(/\s+/g, ' ').trim();
+  if (!text && !allowEmpty) throw new ActionError(`${label} darf nicht leer sein.`);
+  if (text.length > max) throw new ActionError(`${label} ist zu lang (höchstens ${max} Zeichen).`);
+  return text;
+}
+
+/** Ganze Zahl aus einer Eingabemaske (Zahl oder Text wie "3"), mit Grenzen. */
+export function cleanInt(value, { min = 0, max = 1000, label = 'Zahl' } = {}) {
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
+  if (!Number.isInteger(n)) throw new ActionError(`${label}: bitte eine ganze Zahl eingeben.`);
+  if (n < min || n > max) throw new ActionError(`${label} muss zwischen ${min} und ${max} liegen.`);
+  return n;
 }

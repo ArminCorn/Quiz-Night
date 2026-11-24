@@ -13,5 +13,13 @@
     "bluff",
     "familyfeud"
   ],
+  "globalpunkte": {
+    "_hinweis": "PLATZHALTER – Werte stehen noch nicht fest. Wer ein Format mit mehr Formatpunkten gewinnt, bekommt 'sieger' Globalpunkte, der Verlierer 0, bei Gleichstand beide. Abweichend pro Format z. B. \"formate\": { \"familyfeud\": 20 }.",
+    "sieger": 10,
+    "formate": {}
+  },
+  "buzzer": {
+    "keys": { "A": "a", "B": "l" }
+  },
   "port": 3000
 }

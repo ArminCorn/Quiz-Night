@@ -5,7 +5,7 @@
 // vorhandenen Dateien. Fehlt eine Datei, passiert stillschweigend nichts.
 
 /** Bekannte Namen – Formate dürfen zusätzlich eigene verwenden. */
-export const SOUND_NAMES = ['formatIntro', 'reveal', 'roundEnd', 'correct', 'wrong', 'scoreUpdate'];
+export const SOUND_NAMES = ['formatIntro', 'reveal', 'roundEnd', 'correct', 'wrong', 'scoreUpdate', 'buzz'];
 
 const sounds = new Map();
 let enabled = true;

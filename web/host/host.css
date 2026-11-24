@@ -442,3 +442,214 @@ body.is-offline .host-main {
     transform: translateY(8px);
   }
 }
+
+/* ------------------------------------------------ Eingabemasken (web/core/forms.js) */
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.form-label {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.form-input {
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--paper-faint);
+  border-radius: 4px;
+  background: var(--night);
+  font-size: 16px;
+}
+.form-input:focus {
+  outline: 2px solid var(--tb-yellow);
+  outline-offset: 1px;
+}
+.rows-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rows-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.rows-row .form-input,
+.rows-head > .label {
+  flex: 1 1 0;
+}
+.rows-row .form-input.is-wide,
+.rows-head > .label.is-wide {
+  flex: 3 1 0;
+}
+.rows-head > .label {
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.rows-head > span:last-child,
+.rows-row > .btn {
+  flex: 0 0 34px;
+}
+.rows-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.rows-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------ Buzzer-Testscreen */
+
+.buzzer-panel {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: auto;
+  padding: 32px 16px;
+  background: rgba(14, 22, 38, 0.97);
+}
+.bp-box {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 24px;
+  background: var(--night-2);
+  border: 1px solid var(--line);
+}
+.bp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.bp-title {
+  margin: 0;
+  font-size: 34px;
+  text-transform: uppercase;
+}
+.bp-note {
+  margin: 10px 0 0;
+}
+.bp-section {
+  margin-top: 24px;
+}
+.bp-sub {
+  margin: 0 0 12px;
+  font-size: 12px;
+  color: var(--paper-dim);
+}
+.bp-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 760px) {
+  .bp-cards {
+    grid-template-columns: 1fr;
+  }
+}
+.bp-card {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  background: var(--night);
+  border: 1px solid var(--line);
+}
+.bp-card-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.bp-team-name {
+  font-family: var(--font-display);
+  font-style: italic;
+  font-weight: 900;
+  font-stretch: 115%;
+  font-size: 24px;
+  text-transform: uppercase;
+}
+.bp-lamp {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 2px solid var(--paper-faint);
+  background: var(--night-3);
+  transition: background 0.4s, border-color 0.4s;
+}
+.bp-lamp.is-on {
+  background: var(--red);
+  border-color: var(--paper);
+  transition: none;
+}
+.bp-row,
+.bp-keyform {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.bp-row > .label,
+.bp-keyform > .label {
+  width: 70px;
+  font-size: 11px;
+  color: var(--paper-dim);
+}
+.bp-mapping {
+  flex: 1;
+  min-width: 140px;
+}
+.bp-mapping.is-missing {
+  color: #f0a29c;
+}
+.bp-key {
+  width: 56px;
+  text-align: center;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+.bp-status {
+  margin: 0 0 12px;
+  color: var(--paper-dim);
+}
+.bp-pad {
+  margin-bottom: 14px;
+}
+.bp-pad-name {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--paper-dim);
+  overflow-wrap: anywhere;
+}
+.bp-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bp-btn {
+  min-width: 44px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 6px;
+  border: 1px solid var(--paper-faint);
+  border-radius: 4px;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.bp-btn.is-team {
+  border-color: var(--paper);
+  font-weight: 700;
+}
+.bp-btn.is-pressed {
+  background: var(--red);
+  border-color: var(--red);
+  color: var(--paper);
+}
